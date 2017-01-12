@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>ThreeJs Testing</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="../build/three.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/libs/stats.min.js"></script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+            const COUNTER_MAX = 100;
+            const COUNTER_MAX2 = 170;
+            const MAX_SPEED = 200;
+            
+			var container, stats;
+
+			var camera, scene, renderer;
+            
+            var id;
+            
+            var colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0x00ffff, 0xff00ff];
+            
+            function Player(id, radius, locationX, locationZ, vectorX, vectorZ, color, status, obj) {
+                var newObj = {};
+                newObj.id = id;
+                newObj.radius = radius;
+                newObj.locationX = locationX;
+                newObj.locationZ = locationZ;
+                newObj.vectorX = vectorX;
+                newObj.vectorZ = vectorZ;
+                newObj.color = color;
+                newObj.status = status;
+                newObj.obj = obj;
+                
+                return newObj;
+            }
+            
+            var test = [Player(1, 45, 232, 150, 50, 70, colors[0], null, null), 
+                         Player(2, 60, -232, -150, 60, 30, colors[1], null, null), 
+                        Player(3, 50, -232, 150, -40, 65, colors[2], null, null) 
+                         ];
+            
+//            var playerArray = [{"id": 1, "x": -150.0, "z": 232, "radius": 150, "color": colors[0], "obj": null },
+//                               {"id": 1, "x": 150.0, "z": -232, "radius": 45, "color": colors[1], "obj": null }, 
+//                               {"id": 1, "x": -150.0, "z": -232, "radius": 100, "color": colors[2], "obj": null } 
+//                              ];
+            
+            var circle;
+            var counter = 0;
+            
+            var speedX = 0;
+            var speedZ = 0;
+            
+            var accX = 0.0;
+            var accZ = 0.0;
+            
+            var acc2X = 0.0;
+            var acc2Z = 0.0;
+            
+            var radius = 50;
+            
+            var timer = Date.now();
+
+			init();
+			animate();
+
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 150, window.innerWidth / window.innerHeight, 1, 2000 );
+                var width = 1920;
+                var height = 1080;
+                
+//                camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+                camera.position.set(100, 400, 0);
+                camera.up = new THREE.Vector3(0, 0, 1);
+				
+
+				scene = new THREE.Scene();
+
+				var light, object;
+
+				scene.add( new THREE.AmbientLight( 0x404040 ) );
+
+				light = new THREE.DirectionalLight( 0xffffff );
+				light.position.set( 0, 1, 0 );
+				scene.add( light );
+
+//				var map = new THREE.TextureLoader().load( 'textures/UV_Grid_Sm.jpg' );
+//                var map = new THREE.TextureLoader().load( 'textures/lensflare2.jpg' );
+//                var map = new THREE.TextureLoader().load( 'textures/sprite0.png' );
+                var map = new THREE.TextureLoader().load( 'textures/envmap.png' );
+				map.wrapS = map.wrapT = THREE.RepeatWrapping;
+				map.anisotropy = 16;
+
+				var material = new THREE.MeshLambertMaterial( { map: map, side: THREE.DoubleSide } );
+
+//				object = new THREE.Mesh( new THREE.CircleGeometry( 50, 20, 0, Math.PI * 2 ), material );
+                object = new THREE.Mesh( new THREE.SphereGeometry( 50, 20, 10 ), material );
+				object.position.set( 0, 0, 0 );
+                object.material.color.setHex(0x00ffff);
+                circle = object;
+				scene.add( object );
+
+                test.forEach(function(element) {
+                    console.log("FOREACH ONE TIME ON TEST");
+                    var newMaterial = new THREE.MeshLambertMaterial( { map: map, side: THREE.DoubleSide } );
+                    newMaterial.color.setHex(element.color);
+                    
+                    element.obj = new THREE.Mesh( new THREE.SphereGeometry( element.radius, 20, 0, Math.PI * 2 ), newMaterial );
+                    element.obj.position.set(element.locationX, 0, element.locationZ);
+                    scene.add(element.obj);
+                });
+                
+//                playerArray.forEach(function(element) {
+//                    var newMaterial = new THREE.MeshLambertMaterial( { map: map, side: THREE.FrontSide } );
+//                    newMaterial.color.setHex(element.color);
+//                    
+//                    element.obj = new THREE.Mesh( new THREE.CircleGeometry( element.radius, 20, 0, Math.PI * 2 ), newMaterial );
+//                    element.obj.position.set(element.x, 0, element.z);
+//                    scene.add(element.obj);
+//                });
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+
+			function animate() {
+                var deltaTime = (Date.now() - timer) / 1000.0;
+                timer = Date.now();
+                
+				requestAnimationFrame( animate );
+
+                updateSelf(deltaTime);
+                updateOthers(deltaTime);
+                
+				render();
+				stats.update();
+
+			}
+            
+            function updateSelf(deltaTime) {
+                
+                if (counter++ % COUNTER_MAX == 0) {
+                    var offset = Math.random() < .5 ? .65 : .35;
+                    
+                    accX = (Math.random() - offset) * 2;
+                    accZ = (Math.random() - .51) * 2;
+                }
+                
+                if (counter % COUNTER_MAX2 == 0) {
+                    var offset = Math.random() < .5 ? .65 : .35;
+                    
+                    acc2X = (Math.random() - .5) * 1;
+                    acc2Z = (Math.random() - offset) * 1;
+                }
+                
+                if (counter % COUNTER_MAX == COUNTER_MAX / 2 - COUNTER_MAX / 5) {
+                    accX *= -1;
+                    accZ *= -1;
+                }
+                if (counter % COUNTER_MAX2 == COUNTER_MAX / 2 - COUNTER_MAX2 / 7) {
+                    acc2X *= -1;
+                    acc2Z *= -1;
+                }
+                
+                speedX += accX + acc2X;
+                speedZ += accZ + acc2Z;
+                
+                if (circle.position.z + radius + speedZ * deltaTime > 540 ||
+                   circle.position.z - radius + speedZ * deltaTime < -540) {
+                    speedZ *= -1;
+                    accZ *= -1;
+                    acc2Z *= -1;
+                } 
+                
+                if (circle.position.x - radius + speedX * deltaTime < -960 ||
+                    circle.position.x + radius + speedX * deltaTime > 960) {
+                    speedX *= -1;
+                    accX *= -1;
+                    acc2X *= -1;
+                }
+                
+                if (speedZ > MAX_SPEED) {
+                    speedZ = MAX_SPEED;
+                }
+                if (speedX > MAX_SPEED) {
+                    speedX = MAX_SPEED;
+                }
+                
+                circle.position.x += speedX * deltaTime;
+                circle.position.z += speedZ * deltaTime;
+                
+                circle.rotation.x += .03;
+                circle.rotation.z += .03;
+                circle.rotation.y += .03;
+
+            }
+            
+            function updateOthers(deltaTime) {
+                test.forEach(function(element) {
+                    element.obj.position.x += element.vectorX * deltaTime;
+                    element.obj.position.z += element.vectorZ * deltaTime;
+                });
+            }
+
+			function render() {
+//				camera.lookAt( scene.position );
+                camera.lookAt(new THREE.Vector3(0,0,0));
+
+				for ( var i = 0, l = scene.children.length; i < l; i ++ ) {
+
+					var object = scene.children[ i ];
+
+//					object.rotation.x = -90;
+
+				}
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
