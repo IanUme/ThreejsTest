@@ -1,262 +1,417 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>ThreeJs Testing</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
-			body {
-				font-family: Monospace;
-				background-color: #000;
-				margin: 0px;
-				overflow: hidden;
-			}
-		</style>
-	</head>
-	<body>
 
-		<script src="../build/three.js"></script>
-		<script src="js/Detector.js"></script>
-		<script src="js/libs/stats.min.js"></script>
+<head>
+    <title>ThreeJs Testing</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #000;
+            margin: 0px;
+            overflow: hidden;
+        }
 
-		<script>
+    </style>
+</head>
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+<body>
 
-            const COUNTER_MAX = 100;
-            const COUNTER_MAX2 = 170;
-            const MAX_SPEED = 200;
+    <script src="build/three.js"></script>
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+    <script src="js/threex.renderstats.js"></script>
+
+    <script>
+        const PLAYER_COUNT = 1375;
+        
+        const COUNTER_MAX = 100;
+        const COUNTER_MAX2 = 170;
+        const MAX_SPEED = 200;
+        const RADIUS = 300;
+
+        const HIDDEN = new THREE.Vector3(-35000, -35000, -35000);
+
+        const width = 6000;
+        const length = 6000;
+        const height = 6000;
+
+
+        var colorCounter = 0;
+
+        var container, stats;
+
+        var camera, scene, renderer;
+
+        var topPlane, leftPlane, rightPlane, backPlane, bottomPlane;
+
+        window.addEventListener('keydown', handleKeyDown, false);
+
+        var idCounter = 0;
+
+        var colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0x00ffff, 0xff00C0, 0x800000, 0x008000, 0x000080, 0x505000, 0x800080, 0x008080];
+
+        var rendererStats = new THREEx.RendererStats();
+
+        function Player(id, radius, location, movement, color, status, obj) {
+            var newObj = {};
+            newObj.id = id;
+            newObj.radius = radius;
+            newObj.location = location;
+            newObj.movement = movement;
+            newObj.color = color;
+            newObj.status = status;
+            newObj.obj = {};
+            newObj.vectorChange = false;
+
+            return newObj;
+        }
+
+
+        var playerList = [
+//            Player(idCounter++, 150, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 600 - 300, Math.random() * 600 - 300, Math.random() * 600 - 300), colors[colorCounter++ % colors.length], null, null)
+        ];
+
+        var timer = Date.now();
+
+        init();
+        animate();
+
+        function initPlayer(player) {
+            var map = new THREE.TextureLoader().load('textures/UV_Grid_Sm.jpg');
+            map.wrapS = map.wrapT = THREE.RepeatWrapping;
+            map.anisotropy = 16;
+
+            var newMaterial = new THREE.MeshLambertMaterial({
+                map: map,
+                side: THREE.DoubleSide
+            });
+            newMaterial.color.setHex(player.color);
+
+            player.obj = new THREE.Mesh(new THREE.SphereGeometry(player.radius, 20, 0, Math.PI * 2), newMaterial);
+            player.obj.position.set(player.location.x, player.location.y, player.location.z);
+            scene.add(player.obj);
+        }
+
+        function createPlane(position, rotation) {
+            var map = new THREE.TextureLoader().load('textures/UV_Grid_Sm.jpg');
+
+            var wallMaterial = new THREE.MeshLambertMaterial({
+                map: map
+            });
+            //                var wallMaterial = new THREE.MeshLambertMaterial( { color: 0x009999, opacity : .5, transparent : true });
+            wallMaterial.color.setHex(0xff00ff);
+            var tempPlane = new THREE.Mesh(new THREE.PlaneGeometry(12000, 12000), wallMaterial);
+            tempPlane.doubleSided = true;
+            tempPlane.position.x = position.x;
+            tempPlane.position.y = position.y;
+            tempPlane.position.z = position.z;
+
+            tempPlane.rotation.x = rotation.x;
+            tempPlane.rotation.y = rotation.y;
+            tempPlane.rotation.z = rotation.z;
+            tempPlane.material.side = THREE.DoubleSide;
+
+            return tempPlane;
+        }
+
+        function init() {
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(50, 1, 1, 40000);
+
+
+            camera.position.set(3000, 12000, 6000);
+            camera.up = new THREE.Vector3(0, 0, 1);
+
+
+            scene = new THREE.Scene();
+
+            var light, object;
+
+            scene.add(new THREE.AmbientLight(0x404040));
+
+            light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(0, 1, 0);
+            scene.add(light);
+
+            leftPlane = createPlane(new THREE.Vector3(6000, 6000, 6000), new THREE.Vector3(0, Math.PI / 2, 0));
+            scene.add(leftPlane);
+
+            topPlane = createPlane(new THREE.Vector3(6000, 6000, 6000), new THREE.Vector3());
+            scene.add(topPlane);
+
+            backPlane = createPlane(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-Math.PI / 2, 0, 0));
+            scene.add(backPlane);
+
+            rightPlane = createPlane(new THREE.Vector3(), new THREE.Vector3(0, Math.PI / 2, 0));
+            scene.add(rightPlane);
+
+            bottomPlane = createPlane(new THREE.Vector3(0, 6000, 0), new THREE.Vector3());
+            scene.add(bottomPlane);
+
+            playerList.forEach(function(element) {
+                initPlayer(element);
+            });
+
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            container.appendChild(renderer.domElement);
+
+            stats = new Stats();
+            container.appendChild(stats.dom);
+
+            rendererStats.domElement.style.position = 'absolute';
+            rendererStats.domElement.style.left = '0px';
+            rendererStats.domElement.style.bottom = '0px';
+            document.body.appendChild(rendererStats.domElement);
             
-			var container, stats;
+            for (var i = 0; i < PLAYER_COUNT; i++) {
+                    var newPlayer = Player(idCounter++, 100, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 1200 - 600, Math.random() * 1200 - 600, Math.random() * 1200 - 600), colors[colorCounter++ % colors.length], null, null);
+                    initPlayer(newPlayer);
+                    playerList.push(newPlayer);
+                }
 
-			var camera, scene, renderer;
-            
-            var id;
-            
-            var colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0x00ffff, 0xff00ff];
-            
-            function Player(id, radius, locationX, locationZ, vectorX, vectorZ, color, status, obj) {
-                var newObj = {};
-                newObj.id = id;
-                newObj.radius = radius;
-                newObj.locationX = locationX;
-                newObj.locationZ = locationZ;
-                newObj.vectorX = vectorX;
-                newObj.vectorZ = vectorZ;
-                newObj.color = color;
-                newObj.status = status;
-                newObj.obj = obj;
-                
-                return newObj;
+
+            window.addEventListener('resize', onWindowResize, false);
+
+        }
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            //				camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        function animate() {
+            var deltaTime = (Date.now() - timer) / 1000.0;
+            timer = Date.now();
+
+            requestAnimationFrame(animate);
+
+            updatePlayers(deltaTime);
+            rendererStats.update(renderer);
+
+            render();
+            stats.update();
+
+        }
+
+        function updatePlayers(deltaTime) {
+
+            playerList.forEach(function(element) {
+                if (element.location.x != HIDDEN.x) {
+
+
+                    if (element.obj.position.x - element.radius + element.movement.x * deltaTime < 0) {
+                        element.movement.x = Math.abs(element.movement.x);
+                        element.vectorChange = true;
+                    } else if (element.obj.position.x + element.radius + element.movement.x * deltaTime > width) {
+                        element.movement.x = -Math.abs(element.movement.x);
+                        element.vectorChange = true;
+                    }
+
+                    if (element.obj.position.y - element.radius + element.movement.y * deltaTime < 0) {
+                        element.movement.y = Math.abs(element.movement.y);
+                        element.vectorChange = true;
+                    } else if (element.obj.position.y + element.radius + element.movement.y * deltaTime > height) {
+                        element.movement.y = -Math.abs(element.movement.y);
+                        element.vectorChange = true;
+                    }
+
+                    if (element.obj.position.z + element.radius + element.movement.z * deltaTime > length) {
+                        element.movement.z = -Math.abs(element.movement.z);
+                        element.vectorChange = true;
+                    } else if (element.obj.position.z - element.radius + element.movement.z * deltaTime < 0) {
+                        element.movement.z = Math.abs(element.movement.z);
+                        element.vectorChange = true;
+                    }
+
+
+                    element.obj.position.x += element.movement.x * deltaTime;
+                    element.obj.position.y += element.movement.y * deltaTime;
+                    element.obj.position.z += element.movement.z * deltaTime;
+
+                    //                    console.log("current location: (" + element.obj.position.x + ", " + element.obj.position.y + ", " + element.obj.position.z + ")");
+                } else {
+                    console.log("LOCATION.X == HIDDEN.X");
+                }
+            });
+        }
+
+        function render() {
+            camera.lookAt(new THREE.Vector3(3000, 0, 1500));
+
+            for (var i = 0, l = scene.children.length; i < l; i++) {
+
+                var object = scene.children[i];
             }
-            
-            var test = [Player(1, 45, 232, 150, 50, 70, colors[0], null, null), 
-                         Player(2, 60, -232, -150, 60, 30, colors[1], null, null), 
-                        Player(3, 50, -232, 150, -40, 65, colors[2], null, null) 
-                         ];
-            
-//            var playerArray = [{"id": 1, "x": -150.0, "z": 232, "radius": 150, "color": colors[0], "obj": null },
-//                               {"id": 1, "x": 150.0, "z": -232, "radius": 45, "color": colors[1], "obj": null }, 
-//                               {"id": 1, "x": -150.0, "z": -232, "radius": 100, "color": colors[2], "obj": null } 
-//                              ];
-            
-            var circle;
-            var counter = 0;
-            
-            var speedX = 0;
-            var speedZ = 0;
-            
-            var accX = 0.0;
-            var accZ = 0.0;
-            
-            var acc2X = 0.0;
-            var acc2Z = 0.0;
-            
-            var radius = 50;
-            
-            var timer = Date.now();
 
-			init();
-			animate();
+            renderer.render(scene, camera);
 
-			function init() {
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
+        }
 
-				camera = new THREE.PerspectiveCamera( 150, window.innerWidth / window.innerHeight, 1, 2000 );
-                var width = 1920;
-                var height = 1080;
-                
-//                camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
-                camera.position.set(100, 400, 0);
-                camera.up = new THREE.Vector3(0, 0, 1);
-				
-
-				scene = new THREE.Scene();
-
-				var light, object;
-
-				scene.add( new THREE.AmbientLight( 0x404040 ) );
-
-				light = new THREE.DirectionalLight( 0xffffff );
-				light.position.set( 0, 1, 0 );
-				scene.add( light );
-
-//				var map = new THREE.TextureLoader().load( 'textures/UV_Grid_Sm.jpg' );
-//                var map = new THREE.TextureLoader().load( 'textures/lensflare2.jpg' );
-//                var map = new THREE.TextureLoader().load( 'textures/sprite0.png' );
-                var map = new THREE.TextureLoader().load( 'textures/envmap.png' );
-				map.wrapS = map.wrapT = THREE.RepeatWrapping;
-				map.anisotropy = 16;
-
-				var material = new THREE.MeshLambertMaterial( { map: map, side: THREE.DoubleSide } );
-
-//				object = new THREE.Mesh( new THREE.CircleGeometry( 50, 20, 0, Math.PI * 2 ), material );
-                object = new THREE.Mesh( new THREE.SphereGeometry( 50, 20, 10 ), material );
-				object.position.set( 0, 0, 0 );
-                object.material.color.setHex(0x00ffff);
-                circle = object;
-				scene.add( object );
-
-                test.forEach(function(element) {
-                    console.log("FOREACH ONE TIME ON TEST");
-                    var newMaterial = new THREE.MeshLambertMaterial( { map: map, side: THREE.DoubleSide } );
-                    newMaterial.color.setHex(element.color);
-                    
-                    element.obj = new THREE.Mesh( new THREE.SphereGeometry( element.radius, 20, 0, Math.PI * 2 ), newMaterial );
-                    element.obj.position.set(element.locationX, 0, element.locationZ);
-                    scene.add(element.obj);
-                });
-                
-//                playerArray.forEach(function(element) {
-//                    var newMaterial = new THREE.MeshLambertMaterial( { map: map, side: THREE.FrontSide } );
-//                    newMaterial.color.setHex(element.color);
-//                    
-//                    element.obj = new THREE.Mesh( new THREE.CircleGeometry( element.radius, 20, 0, Math.PI * 2 ), newMaterial );
-//                    element.obj.position.set(element.x, 0, element.z);
-//                    scene.add(element.obj);
-//                });
-
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-
-				container.appendChild( renderer.domElement );
-
-				stats = new Stats();
-				container.appendChild( stats.dom );
-
-
-				window.addEventListener( 'resize', onWindowResize, false );
-
-			}
-
-			function onWindowResize() {
-
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
-
-				renderer.setSize( window.innerWidth, window.innerHeight );
-
-			}
-
-
-			function animate() {
-                var deltaTime = (Date.now() - timer) / 1000.0;
-                timer = Date.now();
-                
-				requestAnimationFrame( animate );
-
-                updateSelf(deltaTime);
-                updateOthers(deltaTime);
-                
-				render();
-				stats.update();
-
-			}
-            
-            function updateSelf(deltaTime) {
-                
-                if (counter++ % COUNTER_MAX == 0) {
-                    var offset = Math.random() < .5 ? .65 : .35;
-                    
-                    accX = (Math.random() - offset) * 2;
-                    accZ = (Math.random() - .51) * 2;
+        function handleKeyDown(event) {
+            if (event.keyCode === 65) { // 'A' KEY
+                //                    var newPlayer = Player(idCounter++, 150, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 1200 - 600, Math.random() * 1200 - 600, Math.random() * 1200 - 600), colors[colorCounter++ %                   colors.length], null, null);
+                //                    initPlayer(newPlayer);
+                //                    playerList.push(newPlayer);
+                for (var i = 0; i < 10; i++) {
+                    var newPlayer = Player(idCounter++, 100, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 1200 - 600, Math.random() * 1200 - 600, Math.random() * 1200 - 600), colors[colorCounter++ % colors.length], null, null);
+                    console.log("current idCounter: " + idCounter);
+                    initPlayer(newPlayer);
+                    playerList.push(newPlayer);
                 }
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+<!--
+//  from Takeda 
+	const addPlayer = function(){
+        console.log("ADDPLAYER CALLED");
+		const user_id = Date.now();
+        
+        var newPlayer = Player(user_id, RADIUS, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 1200 - 600, Math.random() * 1200 - 600, Math.random() * 1200 - 600), colors[colorCounter++ % colors.length], null, null);
+        initPlayer(newPlayer);
+        playerList.push(newPlayer);
+        console.log("playerList.count: " + playerList.length);
+        
+		const client = new RoomClient({
+				'title': 'sample3',
+				'lobby': lobbyUri
+        });
+        
+		redering = false;
+		client.on('message', (msg) => {
+		
+//            console.log("received message from server: " + msg);
+            
+			msg.users.forEach(function(user){
+			
+				const me = (user.user == user_id);
                 
-                if (counter % COUNTER_MAX2 == 0) {
-                    var offset = Math.random() < .5 ? .65 : .35;
-                    
-                    acc2X = (Math.random() - .5) * 1;
-                    acc2Z = (Math.random() - offset) * 1;
-                }
+                var found = false;
                 
-                if (counter % COUNTER_MAX == COUNTER_MAX / 2 - COUNTER_MAX / 5) {
-                    accX *= -1;
-                    accZ *= -1;
-                }
-                if (counter % COUNTER_MAX2 == COUNTER_MAX / 2 - COUNTER_MAX2 / 7) {
-                    acc2X *= -1;
-                    acc2Z *= -1;
-                }
-                
-                speedX += accX + acc2X;
-                speedZ += accZ + acc2Z;
-                
-                if (circle.position.z + radius + speedZ * deltaTime > 540 ||
-                   circle.position.z - radius + speedZ * deltaTime < -540) {
-                    speedZ *= -1;
-                    accZ *= -1;
-                    acc2Z *= -1;
+                for (var i in playerList) {
+                    if (playerList[i].id == user.user) {
+                        found = true;
+                        
+                        if (user.status == "eaten") {
+//                            playerList[i].location = HIDDEN;
+//                            playerList[i].obj.position = HIDDEN;
+                        } else {
+                            playerList[i].obj.radius = user.radius; 
+                            var scale = user.radius / RADIUS;
+                            
+                            playerList[i].obj.scale.x = scale;
+                            playerList[i].obj.scale.y = scale;
+                            playerList[i].obj.scale.z = scale;
+                            
+                            
+                        playerList[i].location.x = user.location.x;
+                        playerList[i].location.y = user.location.y;
+                        playerList[i].location.z = user.location.z;
+                        
+                        playerList[i].obj.position.x = user.location.x;
+                        playerList[i].obj.position.y = user.location.y;
+                        playerList[i].obj.position.z = user.location.z;
+                        
+                        
+//                        console.log("SERVER current location: (" + user.location.x + ", " + user.location.y + ", " + user.location.z + ")" + ", playerList[i].obj.position.x: " + playerList[i].obj.position.x);
+
+                        if (me && playerList[i].vectorChange) {
+                        client.sendInput({
+								'type': 'update',
+								'movement': {
+									'x': playerList[i].movement.x,
+									'y': playerList[i].movement.y,
+                                    'z': playerList[i].movement.z
+									}
+				        });
+                        }
+                        }
+                    }
                 } 
                 
-                if (circle.position.x - radius + speedX * deltaTime < -960 ||
-                    circle.position.x + radius + speedX * deltaTime > 960) {
-                    speedX *= -1;
-                    accX *= -1;
-                    acc2X *= -1;
+                if (!found) {
+                    if (user.status == "eaten") {
+                        
+                    } else {
+                        var newPlayer = Player(user.user, user.radius, new THREE.Vector3(user.location.x, user.location.y, user.location.z), new THREE.Vector3(), colors[colorCounter++ % colors.length], null, null);
+                        initPlayer(newPlayer);
+                        playerList.push(newPlayer);
+                    }
                 }
                 
-                if (speedZ > MAX_SPEED) {
-                    speedZ = MAX_SPEED;
-                }
-                if (speedX > MAX_SPEED) {
-                    speedX = MAX_SPEED;
-                }
                 
-                circle.position.x += speedX * deltaTime;
-                circle.position.z += speedZ * deltaTime;
-                
-                circle.rotation.x += .03;
-                circle.rotation.z += .03;
-                circle.rotation.y += .03;
-
+            });
+                    
+				});
+			
+		client.on('connect', () => {
+				//適当なvectorを与える
+				client.sendInput({
+					'type': 'update',
+					'movement': {
+						'x': (Math.random() * 22 - 11) * 100,
+						'y': (Math.random() * 30 - 15) * 100,
+                        'z': (Math.random() * 16 - 8) * 100,
+						}
+					});
+			});
+		client.on('close', (ev) => {
+		      console.log("CLOSE CALLED");
+				$('#panel').append("<div class=\"system_msg\">Connection Closed</div>");
+		
+			});
+		client.on('error', () => {
+                console.log("ERROR CONNECTING TO SERVER");
+				$('#panel').append("<div class=\"system_msg\">Error!</div>");
+			});
+			
+			
+		client.matching({
+			'userId': user_id,
+			'userName': user_id,
+			'matchingKey': 'test',
+			'matchingRate': 0,
+			'matchingMargin': 0
+			});
+	};
+           
+    function handleKeyDown(event) {
+                if (event.keyCode === 65) { // 'A' KEY
+//                    var newPlayer = Player(idCounter++, 150, new THREE.Vector3(3000, 3000, 3000), new THREE.Vector3(Math.random() * 1200 - 600, Math.random() * 1200 - 600, Math.random() * 1200 - 600), colors[colorCounter++ %                   colors.length], null, null);
+//                    initPlayer(newPlayer);
+//                    playerList.push(newPlayer);
+                    addPlayer();
+                }
             }
-            
-            function updateOthers(deltaTime) {
-                test.forEach(function(element) {
-                    element.obj.position.x += element.vectorX * deltaTime;
-                    element.obj.position.z += element.vectorZ * deltaTime;
-                });
-            }
-
-			function render() {
-//				camera.lookAt( scene.position );
-                camera.lookAt(new THREE.Vector3(0,0,0));
-
-				for ( var i = 0, l = scene.children.length; i < l; i ++ ) {
-
-					var object = scene.children[ i ];
-
-//					object.rotation.x = -90;
-
-				}
-
-				renderer.render( scene, camera );
-
-			}
-
-		</script>
-
-	</body>
-</html>
+    
+    addPlayer();
+});-->
